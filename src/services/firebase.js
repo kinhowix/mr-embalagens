@@ -1,17 +1,19 @@
 import { initializeApp } from "firebase/app";
-import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-    apiKey: "SUA_API_KEY",
-    authDomain: "SEU_DOMINIO",
-    projectId: "SEU_ID",
-    storageBucket: "SEU_BUCKET",
-    messagingSenderId: "SEU_ID",
-    appId: "SEU_APP_ID"
+    apiKey: "AIzaSyBBIm5bA_UDNKpLSUOV3VWJqR6jlL4dDvI",
+    authDomain: "mr-embalagens.firebaseapp.com",
+    projectId: "mr-embalagens",
+    storageBucket: "mr-embalagens.firebasestorage.app",
+    messagingSenderId: "1061293403647",
+    appId: "1:1061293403647:web:14bbc57ddbda0a05b98bca"
 };
 
 const app = initializeApp(firebaseConfig);
 
-export const storage = getStorage(app);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);

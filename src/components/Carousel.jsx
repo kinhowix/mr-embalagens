@@ -1,19 +1,29 @@
+import { useEffect, useState } from "react";
+import { db } from "../services/firebase";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
-
-import banner1 from "../assets/banner1.jpg";
-import banner2 from "../assets/banner2.jpg";
 
 export default function Carousel() {
-    return (
-        <Swiper spaceBetween={20} slidesPerView={1}>
-            <SwiperSlide>
-                <img src={banner1} className="banner" />
-            </SwiperSlide>
+    const [banners, setBanners] = useState([]);
 
-            <SwiperSlide>
-                <img src={banner2} className="banner" />
-            </SwiperSlide>
+    useEffect(() => {
+        const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const lista = snapshot.docs.map(doc => doc.data());
+            setBanners(lista);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    return (
+        <Swiper slidesPerView={1} autoplay={{ delay: 3000 }}>
+            {banners.map((b, i) => (
+                <SwiperSlide key={i}>
+                    <img src={b.url} className="banner" alt={`Banner ${i}`} />
+                </SwiperSlide>
+            ))}
         </Swiper>
     );
-}
+}
