@@ -1,0 +1,31 @@
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #0f0f0f;
+  color: #fff;
+}
+
+h2 {
+  color: #d4af37;
+  /* dourado */
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.card {
+  background: #1c1c1c;
+  padding: 15px;
+  border-radius: 10px;
+}
+
+button {
+  background: #d4af37;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+}
