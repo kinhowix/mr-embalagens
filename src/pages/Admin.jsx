@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../services/firebase";
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "firebase/auth";
 import { collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import Header from "../components/Header";
 import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus } from "lucide-react";
@@ -30,34 +30,76 @@ export default function Admin() {
     const CLOUD_NAME = "dy7eri5xh";
     const UPLOAD_PRESET = "obtupfsm";
 
+    // Monitoramento de inatividade (30 minutos)
+    useEffect(() => {
+        if (!user) return;
+
+        let timer;
+        const INACTIVITY_TIME = 30 * 60 * 1000; // 30 minutos em milisegundos
+
+        const resetTimer = () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                console.log("Inatividade detectada, realizando logout...");
+                handleLogout();
+            }, INACTIVITY_TIME);
+        };
+
+        // Eventos que reiniciam o timer de inatividade
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        
+        events.forEach(event => {
+            document.addEventListener(event, resetTimer);
+        });
+
+        resetTimer(); // Inicia o contador
+
+        return () => {
+            if (timer) clearTimeout(timer);
+            events.forEach(event => {
+                document.removeEventListener(event, resetTimer);
+            });
+        };
+    }, [user]);
+
+    // Listener de estado de autenticação
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setLoading(false);
         });
+        return () => unsubscribeAuth();
+    }, []);
 
-        // Listen for banners
+    // Listeners de Dados (Otimizados: só rodam se houver um usuário logado)
+    useEffect(() => {
+        if (!user) {
+            setBanners([]);
+            setProducts([]);
+            return;
+        }
+
         const qBanners = query(collection(db, "banners"), orderBy("createdAt", "desc"));
         const unsubscribeBanners = onSnapshot(qBanners, (snapshot) => {
             setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
 
-        // Listen for products
         const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
             setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
 
         return () => {
-            unsubscribeAuth();
             unsubscribeBanners();
             unsubscribeProducts();
         };
-    }, []);
+    }, [user]);
 
     async function handleLogin(e) {
         e.preventDefault();
         try {
+            // Define persistência apenas para a sessão atual (desloga ao fechar o navegador/aba)
+            await setPersistence(auth, browserSessionPersistence);
             await signInWithEmailAndPassword(auth, email, senha);
         } catch (e) {
             alert("Erro ao logar: verifique suas credenciais.");
