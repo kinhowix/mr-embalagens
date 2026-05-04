@@ -1,14 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
 
 :root {
-  --primary-bg: #fdfaf3; /* Champagne suave */
+  --primary-bg: linear-gradient(135deg, #fdfaf3 0%, #f7eedb 100%); /* Gradiente Champagne */
   --secondary-bg: #f8f3e8;
-  --text-main: #4a3728; /* Bronze profundo para elegância */
+  --text-main: #4a3728;
   --text-muted: #8c7b6d;
-  --gold: #c59d5f; /* Ouro da logo */
+  --gold: #c59d5f;
   --gold-dark: #a67c00; 
   --whatsapp: #25d366;
-  --shadow: 0 4px 20px rgba(74, 55, 40, 0.1);
+  --shadow: 0 4px 25px rgba(74, 55, 40, 0.12);
   --radius: 12px;
   --transition: all 0.3s ease;
 }
@@ -21,7 +21,8 @@
 
 body {
   font-family: 'Outfit', sans-serif;
-  background-color: var(--primary-bg);
+  background: var(--primary-bg);
+  background-attachment: fixed; /* Mantém o brilho do fundo ao rolar */
   color: var(--text-main);
   line-height: 1.6;
 }
@@ -45,9 +46,10 @@ a {
 
 /* HEADER */
 .header {
-  background: white;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
   padding: 15px 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.1);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -60,7 +62,12 @@ a {
 }
 
 .header img {
-  height: 50px;
+  height: 85px; /* Logo maior e mais visível */
+  transition: var(--transition);
+}
+
+.header img:hover {
+  transform: scale(1.05);
 }
 
 .header h1 {

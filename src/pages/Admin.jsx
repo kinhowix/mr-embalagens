@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../services/firebase";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import Header from "../components/Header";
-import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon } from "lucide-react";
+import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus } from "lucide-react";
 
 export default function Admin() {
     const [user, setUser] = useState(null);
@@ -24,6 +24,7 @@ export default function Admin() {
     const [productName, setProductName] = useState("");
     const [productFiles, setProductFiles] = useState([]);
     const [uploadingProduct, setUploadingProduct] = useState(false);
+    const [updatingProductId, setUpdatingProductId] = useState(null);
 
     // ☁️ CONFIGURAÇÃO CLOUDINARY
     const CLOUD_NAME = "dy7eri5xh";
@@ -123,6 +124,37 @@ export default function Admin() {
         }
     }
 
+    async function adicionarFotoProduto(productId, file) {
+        if (!file) return;
+        setUpdatingProductId(productId);
+        try {
+            const url = await uploadToCloudinary(file);
+            const productRef = doc(db, "products", productId);
+            await updateDoc(productRef, {
+                images: arrayUnion(url)
+            });
+            alert("Foto adicionada com sucesso!");
+        } catch (err) {
+            alert("Erro ao adicionar foto: " + err.message);
+        } finally {
+            setUpdatingProductId(null);
+        }
+    }
+
+    async function excluirFotoProduto(productId, imageUrl) {
+        if (window.confirm("Deseja remover esta foto do produto?")) {
+            try {
+                const productRef = doc(db, "products", productId);
+                await updateDoc(productRef, {
+                    images: arrayRemove(imageUrl)
+                });
+                alert("Foto removida!");
+            } catch (err) {
+                alert("Erro ao remover foto");
+            }
+        }
+    }
+
     // Helper for Cloudinary
     async function uploadToCloudinary(file) {
         const formData = new FormData();
@@ -144,7 +176,7 @@ export default function Admin() {
     }
 
     async function excluirDocumento(colecao, id) {
-        if (window.confirm("Tem certeza que deseja excluir?")) {
+        if (window.confirm("Tem certeza que deseja excluir tudo?")) {
             try {
                 await deleteDoc(doc(db, colecao, id));
                 alert("Excluído com sucesso!");
@@ -246,18 +278,75 @@ export default function Admin() {
                     <h3>Produtos Atuais</h3>
                     <div className="grid">
                         {products.map(p => (
-                            <div key={p.id} className="card" style={{ position: 'relative' }}>
-                                <img src={p.images[0]} style={{ width: '100%', height: '150px', objectFit: 'cover' }} alt={p.name} />
-                                <div style={{ padding: '15px' }}>
-                                    <h4 style={{ fontSize: '0.9rem' }}>{p.name}</h4>
-                                    <p style={{ fontSize: '0.8rem', color: '#666' }}>{p.images.length} fotos</p>
+                            <div key={p.id} className="card" style={{ padding: '20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                    <h4 style={{ color: '#4a3728' }}>{p.name}</h4>
+                                    <button 
+                                        onClick={() => excluirDocumento("products", p.id)}
+                                        title="Excluir produto inteiro"
+                                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={() => excluirDocumento("products", p.id)}
-                                    style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: 'white', color: '#ef4444', padding: '8px', borderRadius: '50%', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
+                                    {p.images.map((img, idx) => (
+                                        <div key={idx} style={{ position: 'relative', height: '80px' }}>
+                                            <img 
+                                                src={img} 
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} 
+                                                alt="Galeria" 
+                                            />
+                                            <button 
+                                                onClick={() => excluirFotoProduto(p.id, img)}
+                                                style={{ 
+                                                    position: 'absolute', 
+                                                    top: '-5px', 
+                                                    right: '-5px', 
+                                                    backgroundColor: '#ef4444', 
+                                                    color: 'white', 
+                                                    border: 'none', 
+                                                    borderRadius: '50%', 
+                                                    width: '20px', 
+                                                    height: '20px', 
+                                                    fontSize: '12px', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                                }}
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    
+                                    {/* Botão de Adicionar Foto */}
+                                    <label style={{ 
+                                        height: '80px', 
+                                        border: '2px dashed #c59d5f', 
+                                        borderRadius: '6px', 
+                                        display: 'flex', 
+                                        flexDirection: 'column',
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        cursor: 'pointer',
+                                        color: '#c59d5f',
+                                        fontSize: '10px',
+                                        opacity: updatingProductId === p.id ? 0.5 : 1
+                                    }}>
+                                        <input 
+                                            type="file" 
+                                            hidden 
+                                            disabled={updatingProductId === p.id}
+                                            onChange={e => adicionarFotoProduto(p.id, e.target.files[0])} 
+                                        />
+                                        <Plus size={20} />
+                                        <span>{updatingProductId === p.id ? "Subindo..." : "Add Foto"}</span>
+                                    </label>
+                                </div>
                             </div>
                         ))}
                     </div>
