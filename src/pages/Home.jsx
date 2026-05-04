@@ -1,14 +1,27 @@
+import { useState, useEffect } from "react";
+import { db } from "../services/firebase";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import Header from "../components/Header";
 import Carousel from "../components/Carousel";
 import ProductCard from "../components/ProductCard";
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 
-import prod1 from "../assets/produto1.jpg";
-import prod2 from "../assets/produto2.jpg";
-import prod3 from "../assets/produto3.jpg";
-
 export default function Home() {
+    const [products, setProducts] = useState([]);
+
+    useEffect(() => {
+        const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const lista = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setProducts(lista);
+        });
+        return () => unsubscribe();
+    }, []);
+
     return (
         <div className="home-page">
             <Header />
@@ -28,9 +41,18 @@ export default function Home() {
                 </motion.div>
 
                 <div className="grid">
-                    <ProductCard image={prod1} title="Estojo p/ óculos com ímã" />
-                    <ProductCard image={prod2} title="Envelope de serviço" />
-                    <ProductCard image={prod3} title="Sacola de tecido" />
+                    {products.map(product => (
+                        <ProductCard 
+                            key={product.id} 
+                            images={product.images} 
+                            title={product.name} 
+                        />
+                    ))}
+                    {products.length === 0 && (
+                        <p className="text-center" style={{ gridColumn: '1/-1', color: '#666' }}>
+                            Carregando produtos...
+                        </p>
+                    )}
                 </div>
             </section>
 

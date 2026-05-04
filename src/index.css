@@ -111,8 +111,20 @@ a {
 /* GRID */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr; /* 1 coluna no celular */
   gap: 30px;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 colunas no tablet */
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr); /* 3 colunas no desktop */
+  }
 }
 
 /* CARD */
@@ -123,6 +135,9 @@ a {
   box-shadow: var(--shadow);
   transition: var(--transition);
   border: 1px solid #f0f0f0;
+  height: 100%; /* Garante que todos os cards tenham o mesmo tamanho */
+  display: flex;
+  flex-direction: column;
 }
 
 .card:hover {
@@ -130,9 +145,9 @@ a {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
 
-.card img {
+.card img, .card .swiper {
   width: 100%;
-  height: 250px;
+  height: 280px !important; /* Altura fixa para evitar esticamento */
   object-fit: cover;
 }
 
