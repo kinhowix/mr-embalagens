@@ -46,6 +46,7 @@ export default function Home() {
                             key={product.id} 
                             images={product.images} 
                             title={product.name} 
+                            description={product.description}
                         />
                     ))}
                     {products.length === 0 && (

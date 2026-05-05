@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../services/firebase";
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, sendPasswordResetEmail } from "firebase/auth";
 import { collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import Header from "../components/Header";
-import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus } from "lucide-react";
+import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus, Edit2, Check } from "lucide-react";
 
 export default function Admin() {
     const [user, setUser] = useState(null);
@@ -22,42 +22,88 @@ export default function Admin() {
 
     // Product State
     const [productName, setProductName] = useState("");
+    const [productDescription, setProductDescription] = useState("");
     const [productFiles, setProductFiles] = useState([]);
     const [uploadingProduct, setUploadingProduct] = useState(false);
     const [updatingProductId, setUpdatingProductId] = useState(null);
+    const [editingProductId, setEditingProductId] = useState(null);
+    const [editName, setEditName] = useState("");
+    const [editDescription, setEditDescription] = useState("");
 
     // ☁️ CONFIGURAÇÃO CLOUDINARY
     const CLOUD_NAME = "dy7eri5xh";
     const UPLOAD_PRESET = "obtupfsm";
 
+    // Monitoramento de inatividade (30 minutos)
+    useEffect(() => {
+        if (!user) return;
+
+        let timer;
+        const INACTIVITY_TIME = 30 * 60 * 1000; // 30 minutos em milisegundos
+
+        const resetTimer = () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                console.log("Inatividade detectada, realizando logout...");
+                handleLogout();
+            }, INACTIVITY_TIME);
+        };
+
+        // Eventos que reiniciam o timer de inatividade
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        
+        events.forEach(event => {
+            document.addEventListener(event, resetTimer);
+        });
+
+        resetTimer(); // Inicia o contador
+
+        return () => {
+            if (timer) clearTimeout(timer);
+            events.forEach(event => {
+                document.removeEventListener(event, resetTimer);
+            });
+        };
+    }, [user]);
+
+    // Listener de estado de autenticação
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setLoading(false);
         });
+        return () => unsubscribeAuth();
+    }, []);
 
-        // Listen for banners
+    // Listeners de Dados (Otimizados: só rodam se houver um usuário logado)
+    useEffect(() => {
+        if (!user) {
+            setBanners([]);
+            setProducts([]);
+            return;
+        }
+
         const qBanners = query(collection(db, "banners"), orderBy("createdAt", "desc"));
         const unsubscribeBanners = onSnapshot(qBanners, (snapshot) => {
             setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
 
-        // Listen for products
         const qProducts = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
             setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
 
         return () => {
-            unsubscribeAuth();
             unsubscribeBanners();
             unsubscribeProducts();
         };
-    }, []);
+    }, [user]);
 
     async function handleLogin(e) {
         e.preventDefault();
         try {
+            // Define persistência apenas para a sessão atual (desloga ao fechar o navegador/aba)
+            await setPersistence(auth, browserSessionPersistence);
             await signInWithEmailAndPassword(auth, email, senha);
         } catch (e) {
             alert("Erro ao logar: verifique suas credenciais.");
@@ -66,6 +112,36 @@ export default function Admin() {
 
     async function handleLogout() {
         await signOut(auth);
+    }
+
+    async function handleForgotPassword() {
+        if (!email) return alert("Por favor, digite seu e-mail no campo acima para receber o link de recuperação.");
+        try {
+            await sendPasswordResetEmail(auth, email);
+            alert("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+        } catch (err) {
+            alert("Erro ao enviar e-mail: " + err.message);
+        }
+    }
+
+    async function handleUpdateProductText(id) {
+        try {
+            const productRef = doc(db, "products", id);
+            await updateDoc(productRef, {
+                name: editName,
+                description: editDescription
+            });
+            alert("Produto atualizado com sucesso!");
+            setEditingProductId(null);
+        } catch (err) {
+            alert("Erro ao atualizar produto");
+        }
+    }
+
+    function startEditing(product) {
+        setEditingProductId(product.id);
+        setEditName(product.name);
+        setEditDescription(product.description || "");
     }
 
     // --- BANNER FUNCTIONS ---
@@ -110,12 +186,14 @@ export default function Admin() {
 
             await addDoc(collection(db, "products"), {
                 name: productName,
+                description: productDescription,
                 images: imageUrls,
                 createdAt: new Date()
             });
 
             alert("Produto cadastrado com sucesso!");
             setProductName("");
+            setProductDescription("");
             setProductFiles([]);
         } catch (err) {
             alert("Erro ao cadastrar produto: " + err.message);
@@ -196,7 +274,6 @@ export default function Admin() {
                     <div className="login-container">
                         <div className="text-center mb-4">
                             <h2>Acesso Restrito</h2>
-                            <p>Entre com suas credenciais de administrador</p>
                         </div>
                         <form onSubmit={handleLogin}>
                             <div className="input-group">
@@ -208,6 +285,15 @@ export default function Admin() {
                                 <input type="password" placeholder="••••••••" value={senha} onChange={e => setSenha(e.target.value)} required />
                             </div>
                             <button type="submit" className="btn btn-primary btn-full">Entrar</button>
+                            <div className="text-center mt-3">
+                                <button 
+                                    type="button" 
+                                    onClick={handleForgotPassword}
+                                    style={{ background: 'none', border: 'none', color: '#c59d5f', cursor: 'pointer', fontSize: '0.9rem' }}
+                                >
+                                    Esqueci minha senha
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -248,6 +334,15 @@ export default function Admin() {
                                 />
                             </div>
                             <div className="input-group">
+                                <label>Descrição do Produto (Opcional)</label>
+                                <textarea 
+                                    placeholder="Ex: Estojo de alta qualidade com acabamento em couro." 
+                                    value={productDescription}
+                                    onChange={e => setProductDescription(e.target.value)}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', minHeight: '80px', fontFamily: 'inherit' }}
+                                />
+                            </div>
+                            <div className="input-group">
                                 <label>Fotos do Produto (Selecione uma ou mais)</label>
                                 <input 
                                     type="file" 
@@ -279,16 +374,53 @@ export default function Admin() {
                     <div className="grid">
                         {products.map(p => (
                             <div key={p.id} className="card" style={{ padding: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-                                    <h4 style={{ color: '#4a3728' }}>{p.name}</h4>
-                                    <button 
-                                        onClick={() => excluirDocumento("products", p.id)}
-                                        title="Excluir produto inteiro"
-                                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </div>
+                                {editingProductId === p.id ? (
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <input 
+                                            value={editName} 
+                                            onChange={e => setEditName(e.target.value)} 
+                                            style={{ marginBottom: '10px', fontSize: '1.1rem', fontWeight: '600', width: '100%' }} 
+                                            placeholder="Nome do produto"
+                                        />
+                                        <textarea 
+                                            value={editDescription} 
+                                            onChange={e => setEditDescription(e.target.value)} 
+                                            style={{ width: '100%', padding: '8px', fontSize: '0.85rem', marginBottom: '10px', minHeight: '80px', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }}
+                                            placeholder="Descrição do produto"
+                                        />
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button onClick={() => handleUpdateProductText(p.id)} className="btn btn-primary" style={{ padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9rem' }}>
+                                                <Check size={16} /> Salvar
+                                            </button>
+                                            <button onClick={() => setEditingProductId(null)} className="btn" style={{ padding: '8px 15px', backgroundColor: '#f3f4f6', color: '#666', fontSize: '0.9rem' }}>
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px' }}>
+                                            <h4 style={{ color: '#4a3728' }}>{p.name}</h4>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button 
+                                                    onClick={() => startEditing(p)}
+                                                    title="Editar nome e descrição"
+                                                    style={{ color: '#c59d5f', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    <Edit2 size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => excluirDocumento("products", p.id)}
+                                                    title="Excluir produto inteiro"
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {p.description && <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>{p.description}</p>}
+                                    </>
+                                )}
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
                                     {p.images.map((img, idx) => (
