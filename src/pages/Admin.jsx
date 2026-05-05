@@ -3,7 +3,7 @@ import { auth, db } from "../services/firebase";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, sendPasswordResetEmail } from "firebase/auth";
 import { collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import Header from "../components/Header";
-import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus } from "lucide-react";
+import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus, Edit2, Check } from "lucide-react";
 
 export default function Admin() {
     const [user, setUser] = useState(null);
@@ -26,6 +26,9 @@ export default function Admin() {
     const [productFiles, setProductFiles] = useState([]);
     const [uploadingProduct, setUploadingProduct] = useState(false);
     const [updatingProductId, setUpdatingProductId] = useState(null);
+    const [editingProductId, setEditingProductId] = useState(null);
+    const [editName, setEditName] = useState("");
+    const [editDescription, setEditDescription] = useState("");
 
     // ☁️ CONFIGURAÇÃO CLOUDINARY
     const CLOUD_NAME = "dy7eri5xh";
@@ -119,6 +122,26 @@ export default function Admin() {
         } catch (err) {
             alert("Erro ao enviar e-mail: " + err.message);
         }
+    }
+
+    async function handleUpdateProductText(id) {
+        try {
+            const productRef = doc(db, "products", id);
+            await updateDoc(productRef, {
+                name: editName,
+                description: editDescription
+            });
+            alert("Produto atualizado com sucesso!");
+            setEditingProductId(null);
+        } catch (err) {
+            alert("Erro ao atualizar produto");
+        }
+    }
+
+    function startEditing(product) {
+        setEditingProductId(product.id);
+        setEditName(product.name);
+        setEditDescription(product.description || "");
     }
 
     // --- BANNER FUNCTIONS ---
@@ -351,17 +374,53 @@ export default function Admin() {
                     <div className="grid">
                         {products.map(p => (
                             <div key={p.id} className="card" style={{ padding: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px' }}>
-                                    <h4 style={{ color: '#4a3728' }}>{p.name}</h4>
-                                    <button 
-                                        onClick={() => excluirDocumento("products", p.id)}
-                                        title="Excluir produto inteiro"
-                                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </div>
-                                {p.description && <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>{p.description}</p>}
+                                {editingProductId === p.id ? (
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <input 
+                                            value={editName} 
+                                            onChange={e => setEditName(e.target.value)} 
+                                            style={{ marginBottom: '10px', fontSize: '1.1rem', fontWeight: '600', width: '100%' }} 
+                                            placeholder="Nome do produto"
+                                        />
+                                        <textarea 
+                                            value={editDescription} 
+                                            onChange={e => setEditDescription(e.target.value)} 
+                                            style={{ width: '100%', padding: '8px', fontSize: '0.85rem', marginBottom: '10px', minHeight: '80px', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }}
+                                            placeholder="Descrição do produto"
+                                        />
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button onClick={() => handleUpdateProductText(p.id)} className="btn btn-primary" style={{ padding: '8px 15px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9rem' }}>
+                                                <Check size={16} /> Salvar
+                                            </button>
+                                            <button onClick={() => setEditingProductId(null)} className="btn" style={{ padding: '8px 15px', backgroundColor: '#f3f4f6', color: '#666', fontSize: '0.9rem' }}>
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px' }}>
+                                            <h4 style={{ color: '#4a3728' }}>{p.name}</h4>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button 
+                                                    onClick={() => startEditing(p)}
+                                                    title="Editar nome e descrição"
+                                                    style={{ color: '#c59d5f', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    <Edit2 size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => excluirDocumento("products", p.id)}
+                                                    title="Excluir produto inteiro"
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {p.description && <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>{p.description}</p>}
+                                    </>
+                                )}
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
                                     {p.images.map((img, idx) => (
