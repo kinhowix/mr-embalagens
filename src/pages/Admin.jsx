@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../services/firebase";
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, sendPasswordResetEmail } from "firebase/auth";
 import { collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy, updateDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import Header from "../components/Header";
 import { LogOut, Upload, Link as LinkIcon, Trash2, Package, Image as ImageIcon, X, Plus } from "lucide-react";
@@ -22,6 +22,7 @@ export default function Admin() {
 
     // Product State
     const [productName, setProductName] = useState("");
+    const [productDescription, setProductDescription] = useState("");
     const [productFiles, setProductFiles] = useState([]);
     const [uploadingProduct, setUploadingProduct] = useState(false);
     const [updatingProductId, setUpdatingProductId] = useState(null);
@@ -110,6 +111,16 @@ export default function Admin() {
         await signOut(auth);
     }
 
+    async function handleForgotPassword() {
+        if (!email) return alert("Por favor, digite seu e-mail no campo acima para receber o link de recuperação.");
+        try {
+            await sendPasswordResetEmail(auth, email);
+            alert("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+        } catch (err) {
+            alert("Erro ao enviar e-mail: " + err.message);
+        }
+    }
+
     // --- BANNER FUNCTIONS ---
     async function uploadBanner() {
         if (!bannerFile) return alert("Selecione uma imagem");
@@ -152,12 +163,14 @@ export default function Admin() {
 
             await addDoc(collection(db, "products"), {
                 name: productName,
+                description: productDescription,
                 images: imageUrls,
                 createdAt: new Date()
             });
 
             alert("Produto cadastrado com sucesso!");
             setProductName("");
+            setProductDescription("");
             setProductFiles([]);
         } catch (err) {
             alert("Erro ao cadastrar produto: " + err.message);
@@ -238,7 +251,6 @@ export default function Admin() {
                     <div className="login-container">
                         <div className="text-center mb-4">
                             <h2>Acesso Restrito</h2>
-                            <p>Entre com suas credenciais de administrador</p>
                         </div>
                         <form onSubmit={handleLogin}>
                             <div className="input-group">
@@ -250,6 +262,15 @@ export default function Admin() {
                                 <input type="password" placeholder="••••••••" value={senha} onChange={e => setSenha(e.target.value)} required />
                             </div>
                             <button type="submit" className="btn btn-primary btn-full">Entrar</button>
+                            <div className="text-center mt-3">
+                                <button 
+                                    type="button" 
+                                    onClick={handleForgotPassword}
+                                    style={{ background: 'none', border: 'none', color: '#c59d5f', cursor: 'pointer', fontSize: '0.9rem' }}
+                                >
+                                    Esqueci minha senha
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -290,6 +311,15 @@ export default function Admin() {
                                 />
                             </div>
                             <div className="input-group">
+                                <label>Descrição do Produto (Opcional)</label>
+                                <textarea 
+                                    placeholder="Ex: Estojo de alta qualidade com acabamento em couro." 
+                                    value={productDescription}
+                                    onChange={e => setProductDescription(e.target.value)}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', minHeight: '80px', fontFamily: 'inherit' }}
+                                />
+                            </div>
+                            <div className="input-group">
                                 <label>Fotos do Produto (Selecione uma ou mais)</label>
                                 <input 
                                     type="file" 
@@ -321,7 +351,7 @@ export default function Admin() {
                     <div className="grid">
                         {products.map(p => (
                             <div key={p.id} className="card" style={{ padding: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px' }}>
                                     <h4 style={{ color: '#4a3728' }}>{p.name}</h4>
                                     <button 
                                         onClick={() => excluirDocumento("products", p.id)}
@@ -331,6 +361,7 @@ export default function Admin() {
                                         <Trash2 size={18} />
                                     </button>
                                 </div>
+                                {p.description && <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>{p.description}</p>}
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '15px' }}>
                                     {p.images.map((img, idx) => (
